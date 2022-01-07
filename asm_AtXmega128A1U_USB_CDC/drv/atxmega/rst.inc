@@ -1,0 +1,23 @@
+;/*
+;* rst.inc
+;*
+;*  Created: 30.12.2014 00:46:51
+;*   Author: Dominik
+;*/ 
+
+.IFNDEF RST_BASE
+	.SET RST_BASE = 0x0078
+.ENDIF
+
+.IFNDEF CPU_BASE
+	.SET CPU_BASE = 0x0030
+.ENDIF
+
+
+.MACRO CPU_SOFT_RESET:
+	LDI R16, 0xD8
+	STS (CPU_BASE+0x04), R16
+
+	LDI R16, 0x01
+	STS (RST_BASE+0x01), R16
+.ENDMACRO

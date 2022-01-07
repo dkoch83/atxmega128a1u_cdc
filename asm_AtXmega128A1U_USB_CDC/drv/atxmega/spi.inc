@@ -1,0 +1,657 @@
+;/*
+;* spi.inc
+;*
+;*  Created: 11.08.2014 18:45:17
+;*   Author: Dominik
+;*/ 
+
+;.SET SPIC_ENABLE = 0
+;.SET SPID_ENABLE = 1
+;.SET SPIE_ENABLE = 0
+;.SET SPIF_ENABLE = 0
+
+.ifndef SPI_INCLUDE
+.set SPI_INCLUDE = 1
+
+.IFNDEF SPIC_ENABLE
+	.SET SPIC_ENABLE = 0
+.ENDIF
+
+.IFNDEF SPID_ENABLE
+	.SET SPID_ENABLE = 0
+.ENDIF
+
+.IFNDEF SPIE_ENABLE
+	.SET SPIE_ENABLE = 0
+.ENDIF
+
+.IFNDEF SPIF_ENABLE
+	.SET SPIF_ENABLE = 0
+.ENDIF
+
+.IFNDEF SPIC_BASE
+	.SET SPIC_BASE = 0x08C0 ;SPIC_CTRL
+.ENDIF
+.IFNDEF SPID_BASE
+	.SET SPID_BASE = 0x09C0 ;SPID_CTRL
+.ENDIF
+.IFNDEF SPIE_BASE
+	.SET SPIE_BASE = 0x0AC0 ;SPIC_CTRL
+.ENDIF
+.IFNDEF SPIF_BASE
+	.SET SPIF_BASE = 0x0BC0 ;SPID_CTRL
+.ENDIF
+
+.IFNDEF SPIC_PORT
+	.SET SPIC_PORT = 0x0640 ;PORTC_DIR
+.ENDIF
+.IFNDEF SPID_PORT
+	.SET SPID_PORT = 0x0660 ;PORTD_DIR
+.ENDIF
+.IFNDEF SPIE_PORT
+	.SET SPIE_PORT = 0x0680 ;PORTE_DIR
+.ENDIF
+.IFNDEF SPIF_PORT
+	.SET SPIF_PORT = 0x06A0 ;PORTF_DIR
+.ENDIF
+
+.SET SS			= (1<<4)
+.SET DD_MOSI	= (1<<5)
+.SET DD_MISO	= (1<<6)
+.SET DD_SCK		= (1<<7)
+
+
+;############################################################
+;								SPIC
+;############################################################
+.IF  SPIC_ENABLE == 1
+.MACRO SPIC_MasterInit ; @0 = SPI_MODE @1 = SPI_PRESCALER @2 = CLK2X
+	
+	.IF (@0 > 3) | (@0 < 0)
+		.ERROR "SPI_MODE [0 1 2 3]" 
+	.ENDIF
+	.IF (@1 > 3) | (@1 < 0)
+		.ERROR "SPI_PRESCALER [0 1 2 3]" 
+	.ENDIF
+	.IF (@2 > 1) | (@2 < 0)
+		.ERROR "CLK2X [0 1]" 
+	.ENDIF	
+
+
+	PUSH R24
+
+	LDI R24, SS
+	STS (SPIC_PORT+1), R24 ; PORT_DIRSET
+	STS (SPIC_PORT+5), R24 ; PORT_OUTSET
+
+	LDI R24, DD_MOSI | DD_SCK
+	STS (SPIC_PORT+1), R24
+
+	LDS R24, SPIC_BASE
+	
+	CBR R24, (1<<SPI_ENABLE_bp)
+	STS SPIC_BASE, R24
+
+	SBR R24, (@2<<SPI_CLK2X_bp) | (1<<SPI_ENABLE_bp) | (1<<SPI_MASTER_bp) | (@0<<SPI_MODE_gp)  | (@1<<SPI_PRESCALER_gp) 
+	STS SPIC_BASE, R24
+
+	POP R24
+.ENDMACRO
+;-----------------------------------------------------------
+.MACRO SPIC_DISABLE
+	PUSH R24
+	LDI R24, 0x00
+	STS SPIC_BASE, R24
+	POP R24
+.ENDMACRO
+;-----------------------------------------------------------
+ SPIC_SET_SPEED: ;R16 = PRESCALER, R17 = CLK2X
+;.MACRO SPIC_SET_SPEED ; @0 = PRESCALER @1 = CLK2X
+PUSH R0
+PUSH R16
+PUSH R17
+PUSH R18
+PUSH R24
+
+	LDS R24, SPIC_BASE
+	CBR R24, (3<<SPI_PRESCALER_gp) | (1<<SPI_ENABLE_bp) | (1<<SPI_CLK2X_bp)
+	STS SPIC_BASE, R24
+
+	CLR R0
+	OR R0, R16
+	
+	LDI R18, SPI_CLK2X_bp
+	SPIC_SET_SPEED_PRESCALER_LOOP:
+		LSL R17
+		DEC R18
+	BRNE SPIC_SET_SPEED_PRESCALER_LOOP
+	OR R0, R17
+
+	LDI R18, (1<<SPI_ENABLE_bp) | (1<<SPI_MASTER_bp)
+	OR R0, R18
+
+	OR R24, R0
+	STS SPIC_BASE, R24
+POP R24
+POP R18
+POP R17
+POP R16
+POP R0
+RET
+;.ENDMACRO
+;------------------------------------------------------------
+.MACRO SPIC_START
+	PUSH R24
+	LDI R24, SS
+	STS (SPIC_PORT+6), R24  ; PORT_OUTCLR
+	POP R24
+.ENDMACRO
+;------------------------------------------------------------
+.MACRO SPIC_STOP
+	PUSH R24
+	LDI R24, SS
+	STS (SPIC_PORT+5), R24 ; PORT_OUTSET
+	POP R24
+.ENDMACRO
+;------------------------------------------------------------
+SPIC_SEND_BYTE:	;R16
+	PUSH R15
+	STS (SPIC_BASE+3), R16
+
+	SPIC_SEND_BYTE_WAIT:
+		LDS R15, (SPIC_BASE+2)
+		SBRS R15, 7
+	RJMP SPIC_SEND_BYTE_WAIT
+	LDS R16, (SPIC_BASE+3)
+	POP R15
+RET
+;------------------------------------------------------------
+SPIC_SEND_BUFF:	; X Pointer, R16 Size
+	PUSH R16
+	PUSH R15
+	SPIC_SEND_BUFF_START:
+	LD R15, X
+	STS (SPIC_BASE+3), R15
+		SPIC_SEND_BUFF_WAIT:
+		LDS R15, (SPIC_BASE+2)
+		SBRS R15, 7
+	RJMP SPIC_SEND_BUFF_WAIT
+	LDS R15, (SPIC_BASE+3)
+	ST X+, R15
+	DEC R16
+	BRNE SPIC_SEND_BUFF_START
+	POP R15
+	POP R16
+RET
+;------------------------------------------------------------
+SPIC_SEND_BUFF2:	; X Pointer, R16:R17 = Size
+	PUSH R19
+	PUSH R18
+	PUSH R17
+	PUSH R16
+	PUSH R15
+	PUSH XH
+	PUSH XL
+
+	LDI R18, 1
+	LDI R19, 0
+	SPIC_SEND_BUFF2_START:
+	LD R15, X
+	STS (SPIC_BASE+3), R15
+		SPIC_SEND_BUFF2_WAIT:
+		LDS R15, (SPIC_BASE+2)
+		SBRS R15, 7
+	RJMP SPIC_SEND_BUFF2_WAIT
+	LDS R15, (SPIC_BASE+3)
+	ST X+, R15
+	SUB R17, R18
+	SBC R16, R19
+	CP R17, R19
+	CPC R16, R19
+	BRNE SPIC_SEND_BUFF2_START
+	POP XL
+	POP XH
+	POP R15
+	POP R16
+	POP R17
+	POP R18
+	POP R19
+RET
+.ENDIF
+;############################################################
+;								SPID
+;############################################################
+.IF  SPID_ENABLE == 1
+.MACRO SPID_MasterInit ; @0 = SPI_MODE @1 = SPI_PRESCALER @2 = CLK2X
+	PUSH R24
+
+	LDI R24, SS
+	STS (SPID_PORT+1), R24 ; PORT_DIRSET
+	STS (SPID_PORT+5), R24 ; PORT_OUTSET
+
+	LDI R24, DD_MOSI | DD_SCK
+	STS (SPID_PORT+1), R24
+
+	LDS R24, SPID_BASE
+	
+	CBR R24, (1<<SPI_ENABLE_bp)
+	STS SPID_BASE, R24
+
+	SBR R24, (@2<<SPI_CLK2X_bp) | (1<<SPI_ENABLE_bp) | (0<<SPI_DORD_bp)| (1<<SPI_MASTER_bp) | (@0<<SPI_MODE_gp)  | (@1<<SPI_PRESCALER_gp) 
+	STS SPID_BASE, R24
+
+	POP R24
+.ENDMACRO
+;-----------------------------------------------------------
+.MACRO SPID_DISABLE
+	PUSH R24
+	LDI R24, 0x00
+	STS SPID_BASE, R24
+	POP R24
+.ENDMACRO
+;-----------------------------------------------------------
+ SPID_SET_SPEED: ;R16 = PRESCALER, R17 = CLK2X
+;.MACRO SPIC_SET_SPEED ; @0 = PRESCALER @1 = CLK2X
+PUSH R0
+PUSH R16
+PUSH R17
+PUSH R18
+PUSH R24
+
+	LDS R24, SPID_BASE
+	CBR R24, (3<<SPI_PRESCALER_gp) | (1<<SPI_ENABLE_bp) | (1<<SPI_CLK2X_bp)
+	STS SPID_BASE, R24
+
+	CLR R0
+	OR R0, R16
+	
+	LDI R18, SPI_CLK2X_bp
+	SPID_SET_SPEED_PRESCALER_LOOP:
+		LSL R17
+		DEC R18
+	BRNE SPID_SET_SPEED_PRESCALER_LOOP
+	OR R0, R17
+
+	LDI R18, (1<<SPI_ENABLE_bp) | (1<<SPI_MASTER_bp)
+	OR R0, R18
+
+	OR R24, R0
+	STS SPID_BASE, R24
+POP R24
+POP R18
+POP R17
+POP R16
+POP R0
+RET
+;.ENDMACRO
+;------------------------------------------------------------
+.MACRO SPID_START
+	PUSH R24
+	LDI R24, SS
+	STS (SPID_PORT+6), R24  ; PORT_OUTCLR
+	POP R24
+.ENDMACRO
+;------------------------------------------------------------
+.MACRO SPID_STOP
+	PUSH R24
+	LDI R24, SS
+	STS (SPID_PORT+5), R24 ; PORT_OUTSET
+	POP R24
+.ENDMACRO
+;------------------------------------------------------------
+SPID_SEND_BYTE:	;R16
+	PUSH R15
+	STS (SPID_BASE+3), R16
+
+	SPID_SEND_BYTE_WAIT:
+ 		LDS R15, (SPID_BASE+2)
+		SBRS R15, 7
+	RJMP SPID_SEND_BYTE_WAIT
+	LDS R16, (SPID_BASE+3)
+	POP R15
+RET
+;------------------------------------------------------------
+SPID_SEND_BUFF:	; X Pointer, R16 Size
+	PUSH R16
+	PUSH R15
+	SPID_SEND_BUFF_START:
+	LD R15, X
+	STS (SPID_BASE+3), R15
+		SPID_SEND_BUFF_WAIT:
+		LDS R15, (SPID_BASE+2)
+		SBRS R15, 7
+	RJMP SPID_SEND_BUFF_WAIT
+	LDS R15, (SPID_BASE+3)
+	ST X+, R15
+	DEC R16
+	BRNE SPID_SEND_BUFF_START
+	POP R15
+	POP R16
+RET
+;------------------------------------------------------------
+SPID_SEND_BUFF2:	; X Pointer, R16:R17 = Size
+	PUSH R19
+	PUSH R18
+	PUSH R17
+	PUSH R16
+	PUSH R15
+	PUSH XH
+	PUSH XL
+
+	LDI R18, 1
+	LDI R19, 0
+	SPID_SEND_BUFF2_START:
+	LD R15, X
+	STS (SPID_BASE+3), R15
+		SPID_SEND_BUFF2_WAIT:
+		LDS R15, (SPID_BASE+2)
+		SBRS R15, 7
+	RJMP SPID_SEND_BUFF2_WAIT
+	LDS R15, (SPID_BASE+3)
+	ST X+, R15
+	SUB R17, R18
+	SBC R16, R19
+	CP R17, R19
+	CPC R16, R19
+	BRNE SPID_SEND_BUFF2_START
+	POP XL
+	POP XH
+	POP R15
+	POP R16
+	POP R17
+	POP R18
+	POP R19
+RET
+.ENDIF
+;############################################################
+;								SPIE
+;############################################################
+.IF  SPIE_ENABLE == 1
+.MACRO SPIE_MasterInit ; @0 = SPI_MODE @1 = SPI_PRESCALER @2 = CLK2X
+	PUSH R24
+
+	LDI R24, SS
+	STS (SPIE_PORT+1), R24 ; PORT_DIRSET
+	STS (SPIE_PORT+5), R24 ; PORT_OUTSET
+
+	LDI R24, DD_MOSI | DD_SCK
+	STS (SPIE_PORT+1), R24
+
+	LDS R24, SPIE_BASE
+	
+	CBR R24, (1<<SPI_ENABLE_bp)
+	STS SPIE_BASE, R24
+
+	SBR R24, (@2<<SPI_CLK2X_bp) | (1<<SPI_ENABLE_bp) | (1<<SPI_MASTER_bp) | (@0<<SPI_MODE_gp)  | (@1<<SPI_PRESCALER_gp)
+	STS SPIE_BASE, R24
+
+	POP R24
+.ENDMACRO
+;-----------------------------------------------------------
+.MACRO SPIE_DISABLE
+	PUSH R24
+	LDI R24, 0x00
+	STS SPIE_BASE, R24
+	POP R24
+.ENDMACRO
+;-----------------------------------------------------------
+ SPIE_SET_SPEED: ;R16 = PRESCALER, R17 = CLK2X
+;.MACRO SPIC_SET_SPEED ; @0 = PRESCALER @1 = CLK2X
+PUSH R0
+PUSH R16
+PUSH R17
+PUSH R18
+PUSH R24
+
+	LDS R24, SPIE_BASE
+	CBR R24, (3<<SPI_PRESCALER_gp) | (1<<SPI_ENABLE_bp) | (1<<SPI_CLK2X_bp)
+	STS SPIE_BASE, R24
+
+	CLR R0
+	OR R0, R16
+	
+	LDI R18, SPI_CLK2X_bp
+	SPIE_SET_SPEED_PRESCALER_LOOP:
+		LSL R17
+		DEC R18
+	BRNE SPIE_SET_SPEED_PRESCALER_LOOP
+	OR R0, R17
+
+	LDI R18, (1<<SPI_ENABLE_bp) | (1<<SPI_MASTER_bp)
+	OR R0, R18
+
+	OR R24, R0
+	STS SPIE_BASE, R24
+POP R24
+POP R18
+POP R17
+POP R16
+POP R0
+RET
+;.ENDMACRO
+;------------------------------------------------------------
+.MACRO SPIE_START
+	PUSH R24
+	LDI R24, SS
+	STS (SPIE_PORT+6), R24  ; PORT_OUTCLR
+	POP R24
+.ENDMACRO
+;------------------------------------------------------------
+.MACRO SPIE_STOP
+	PUSH R24
+	LDI R24, SS
+	STS (SPIE_PORT+5), R24 ; PORT_OUTSET
+	POP R24
+.ENDMACRO
+;------------------------------------------------------------
+SPIE_SEND_BYTE:	;R16
+	PUSH R15
+	STS (SPIE_BASE+3), R16
+
+	SPIE_SEND_BYTE_WAIT:
+		LDS R15, (SPIE_BASE+2)
+		SBRS R15, 7
+	RJMP SPIE_SEND_BYTE_WAIT
+	LDS R16, (SPIE_BASE+3)
+	POP R15
+RET
+;------------------------------------------------------------
+SPIE_SEND_BUFF:	; X Pointer, R16 Size
+	PUSH R16
+	PUSH R15
+	SPIE_SEND_BUFF_START:
+	LD R15, X
+	STS (SPIE_BASE+3), R15
+		SPIE_SEND_BUFF_WAIT:
+		LDS R15, (SPIE_BASE+2)
+		SBRS R15, 7
+	RJMP SPIE_SEND_BUFF_WAIT
+	LDS R15, (SPIE_BASE+3)
+	ST X+, R15
+	DEC R16
+	BRNE SPIE_SEND_BUFF_START
+	POP R15
+	POP R16
+RET
+;------------------------------------------------------------
+SPIE_SEND_BUFF2:	; X Pointer, R16:R17 = Size
+	PUSH R19
+	PUSH R18
+	PUSH R17
+	PUSH R16
+	PUSH R15
+	PUSH XH
+	PUSH XL
+
+	LDI R18, 1
+	LDI R19, 0
+	SPIE_SEND_BUFF2_START:
+	LD R15, X
+	STS (SPIE_BASE+3), R15
+		SPIE_SEND_BUFF2_WAIT:
+		LDS R15, (SPIE_BASE+2)
+		SBRS R15, 7
+	RJMP SPIE_SEND_BUFF2_WAIT
+	LDS R15, (SPIE_BASE+3)
+	ST X+, R15
+	SUB R17, R18
+	SBC R16, R19
+	CP R17, R19
+	CPC R16, R19
+	BRNE SPIE_SEND_BUFF2_START
+	POP XL
+	POP XH
+	POP R15
+	POP R16
+	POP R17
+	POP R18
+	POP R19
+RET
+.ENDIF
+;############################################################
+;								SPIF
+;############################################################
+.IF  SPIF_ENABLE == 1
+.MACRO SPIF_MasterInit ; @0 = SPI_MODE @1 = SPI_PRESCALER @2 = CLK2X
+	PUSH R24
+
+	LDI R24, SS
+	STS (SPIF_PORT+1), R24 ; PORT_DIRSET
+	STS (SPIF_PORT+5), R24 ; PORT_OUTSET
+
+	LDI R24, DD_MOSI | DD_SCK
+	STS (SPIF_PORT+1), R24
+
+	LDS R24, SPIF_BASE
+	
+	CBR R24, (1<<SPI_ENABLE_bp)
+	STS SPIF_BASE, R24
+
+	SBR R24, (@2<<SPI_CLK2X_bp) | (1<<SPI_ENABLE_bp) | (1<<SPI_MASTER_bp) | (@0<<SPI_MODE_gp)  | (@1<<SPI_PRESCALER_gp)
+	STS SPIF_BASE, R24
+
+	POP R24
+.ENDMACRO
+;-----------------------------------------------------------
+.MACRO SPIF_DISABLE
+	PUSH R24
+	LDI R24, 0x00
+	STS SPIF_BASE, R24
+	POP R24
+.ENDMACRO
+;-----------------------------------------------------------
+ SPIF_SET_SPEED: ;R16 = PRESCALER, R17 = CLK2X
+;.MACRO SPIC_SET_SPEED ; @0 = PRESCALER @1 = CLK2X
+PUSH R0
+PUSH R16
+PUSH R17
+PUSH R18
+PUSH R24
+
+	LDS R24, SPIF_BASE
+	CBR R24, (3<<SPI_PRESCALER_gp) | (1<<SPI_ENABLE_bp) | (1<<SPI_CLK2X_bp)
+	STS SPIF_BASE, R24
+
+	CLR R0
+	OR R0, R16
+	
+	LDI R18, SPI_CLK2X_bp
+	SPIF_SET_SPEED_PRESCALER_LOOP:
+		LSL R17
+		DEC R18
+	BRNE SPIF_SET_SPEED_PRESCALER_LOOP
+	OR R0, R17
+
+	LDI R18, (1<<SPI_ENABLE_bp) | (1<<SPI_MASTER_bp)
+	OR R0, R18
+
+	OR R24, R0
+	STS SPIF_BASE, R24
+POP R24
+POP R18
+POP R17
+POP R16
+POP R0
+RET
+;.ENDMACRO
+;------------------------------------------------------------
+.MACRO SPIF_START
+	PUSH R24
+	LDI R24, SS
+	STS (SPIF_PORT+6), R24  ; PORT_OUTCLR
+	POP R24
+.ENDMACRO
+;------------------------------------------------------------
+.MACRO SPIF_STOP
+	PUSH R24
+	LDI R24, SS
+	STS (SPIF_PORT+5), R24 ; PORT_OUTSET
+	POP R24
+.ENDMACRO
+;------------------------------------------------------------
+SPIF_SEND_BYTE:	;R16
+	PUSH R15
+	STS (SPIF_BASE+3), R16
+
+	SPIF_SEND_BYTE_WAIT:
+		LDS R15, (SPIF_BASE+2)
+		SBRS R15, 7
+	RJMP SPIF_SEND_BYTE_WAIT
+	LDS R16, (SPIF_BASE+3)
+	POP R15
+RET
+;------------------------------------------------------------
+SPIF_SEND_BUFF:	; X Pointer, R16 Size
+	PUSH R16
+	PUSH R15
+	SPIF_SEND_BUFF_START:
+	LD R15, X
+	STS (SPIF_BASE+3), R15
+		SPIF_SEND_BUFF_WAIT:
+		LDS R15, (SPIF_BASE+2)
+		SBRS R15, 7
+	RJMP SPIF_SEND_BUFF_WAIT
+	LDS R15, (SPIF_BASE+3)
+	ST X+, R15
+	DEC R16
+	BRNE SPIF_SEND_BUFF_START
+	POP R15
+	POP R16
+RET
+;------------------------------------------------------------
+SPIF_SEND_BUFF2:	; X Pointer, R16:R17 = Size
+	PUSH R19
+	PUSH R18
+	PUSH R17
+	PUSH R16
+	PUSH R15
+	PUSH XH
+	PUSH XL
+
+	LDI R18, 1
+	LDI R19, 0
+	SPIF_SEND_BUFF2_START:
+	LD R15, X
+	STS (SPIF_BASE+3), R15
+		SPI_SEND_BUFF2_WAIT:
+		LDS R15, (SPIF_BASE+2)
+		SBRS R15, 7
+	RJMP SPIF_SEND_BUFF2_WAIT
+	LDS R15, (SPIF_BASE+3)
+	ST X+, R15
+	SUB R17, R18
+	SBC R16, R19
+	CP R17, R19
+	CPC R16, R19
+	BRNE SPIF_SEND_BUFF2_START
+	POP XL
+	POP XH
+	POP R15
+	POP R16
+	POP R17
+	POP R18
+	POP R19
+RET
+.ENDIF
+;------------------------------------------------------------
+.endif

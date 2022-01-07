@@ -1,0 +1,202 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="14.0">
+  <PropertyGroup>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectVersion>7.0</ProjectVersion>
+    <ToolchainName>com.Atmel.AVRAssembler</ToolchainName>
+    <ProjectGuid>59B1D629-9DCC-43ed-A0FD-8AB0E4D622AB</ProjectGuid>
+    <avrdeviceseries>none</avrdeviceseries>
+    <avrdevice>ATxmega128A1U</avrdevice>
+    <OutputFileName>$(MSBuildProjectName)</OutputFileName>
+    <OutputFileExtension>.obj</OutputFileExtension>
+    <OutputDirectory>$(MSBuildProjectDirectory)\$(Configuration)</OutputDirectory>
+    <Language>ASSEMBLY</Language>
+    <AssemblyName>asm_AtXmega128A1U_USB_CDC</AssemblyName>
+    <Name>asm_AtXmega128A1U_USB_CDC</Name>
+    <RootNamespace>asm_AtXmega128A1U_USB_CDC</RootNamespace>
+    <ToolchainFlavour>Native</ToolchainFlavour>
+    <EntryFile>$(MSBuildProjectDirectory)\AtXmega128A1U_USB_CDC.asm</EntryFile>
+    <KeepTimersRunning>true</KeepTimersRunning>
+    <OverrideVtor>false</OverrideVtor>
+    <CacheFlash>true</CacheFlash>
+    <ProgFlashFromRam>true</ProgFlashFromRam>
+    <RamSnippetAddress>0x20000000</RamSnippetAddress>
+    <UncachedRange />
+    <preserveEEPROM>true</preserveEEPROM>
+    <OverrideVtorValue>exception_table</OverrideVtorValue>
+    <BootSegment>2</BootSegment>
+    <eraseonlaunchrule>4</eraseonlaunchrule>
+    <AsfFrameworkConfig>
+      <framework-data xmlns="">
+        <options />
+        <configurations />
+        <files />
+        <documentation help="" />
+        <offline-documentation help="" />
+        <dependencies>
+          <content-extension eid="atmel.asf" uuidref="Atmel.ASF" version="3.30.1" />
+        </dependencies>
+      </framework-data>
+    </AsfFrameworkConfig>
+    <avrtool>com.atmel.avrdbg.tool.atmelice</avrtool>
+    <avrtoolserialnumber>J41800026539</avrtoolserialnumber>
+    <avrdeviceexpectedsignature>0x1E974C</avrdeviceexpectedsignature>
+    <com_atmel_avrdbg_tool_atmelice>
+      <ToolOptions>
+        <InterfaceProperties>
+          <PdiClock>4000000</PdiClock>
+        </InterfaceProperties>
+        <InterfaceName>PDI</InterfaceName>
+      </ToolOptions>
+      <ToolType>com.atmel.avrdbg.tool.atmelice</ToolType>
+      <ToolNumber>J41800026539</ToolNumber>
+      <ToolName>Atmel-ICE</ToolName>
+    </com_atmel_avrdbg_tool_atmelice>
+    <avrtoolinterface>PDI</avrtoolinterface>
+    <avrtoolinterfaceclock>4000000</avrtoolinterfaceclock>
+    <ResetRule>0</ResetRule>
+    <EraseKey />
+    <AAFDebugger>
+      <AAFDebugFiles xmlns="">
+      </AAFDebugFiles>
+    </AAFDebugger>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <ToolchainSettings>
+      <AvrAssembler>
+        <avrasm.assembler.general.AdditionalIncludeDirectories>
+          <ListValues>
+            <Value>%24(PackRepoDir)\atmel\XMEGAA_DFP\1.0.39\avrasm\inc</Value>
+          </ListValues>
+        </avrasm.assembler.general.AdditionalIncludeDirectories>
+        <avrasm.assembler.general.IncludeFile>ATxmega128a1udef.inc</avrasm.assembler.general.IncludeFile>
+      </AvrAssembler>
+    </ToolchainSettings>
+    <OutputType>Executable</OutputType>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+    <ToolchainSettings>
+      <AvrAssembler>
+        <avrasm.assembler.general.AdditionalIncludeDirectories>
+          <ListValues>
+            <Value>%24(PackRepoDir)\atmel\XMEGAA_DFP\1.0.39\avrasm\inc</Value>
+          </ListValues>
+        </avrasm.assembler.general.AdditionalIncludeDirectories>
+        <avrasm.assembler.general.IncludeFile>ATxmega128a1udef.inc</avrasm.assembler.general.IncludeFile>
+      </AvrAssembler>
+    </ToolchainSettings>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="AtXmega128A1U_USB_CDC.asm">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="drv\atxmega\adc.inc">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="drv\atxmega\clock.inc">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="drv\atxmega\cpu.inc">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="drv\atxmega\crc.inc">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="drv\atxmega\dma.inc">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="drv\atxmega\nvm.inc">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="drv\atxmega\pmic.inc">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="drv\atxmega\pr.inc">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="drv\atxmega\rst.inc">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="drv\atxmega\rtc32.inc">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="drv\atxmega\sleep.inc">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="drv\atxmega\spi.inc">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="drv\atxmega\tc.inc">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="drv\atxmega\twi_master.inc">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="drv\atxmega\usb.inc">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="drv\atxmega\usb_cdc.inc">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="drv\atxmega\usb_cdc_des.inc">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="drv\atxmega\usb_config.inc">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="drv\atxmega\usb_des.inc">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="drv\atxmega\usb_ep.inc">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="drv\atxmega\usb_ep0_control.inc">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="drv\atxmega\usb_interrupts.inc">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="drv\atxmega\vbat.inc">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="drv\pgm.inc">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="include\base16.inc">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="include\base32.inc">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="include\base64.inc">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="include\delay.inc">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="include\hwmul.inc">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="include\math.inc">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="include\mem.inc">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="include\std.inc">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="include\string.inc">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="include\swmul.inc">
+      <SubType>Code</SubType>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="drv\" />
+    <Folder Include="drv\atxmega\" />
+    <Folder Include="include\" />
+  </ItemGroup>
+  <Import Project="$(AVRSTUDIO_EXE_PATH)\\Vs\\Assembler.targets" />
+</Project>

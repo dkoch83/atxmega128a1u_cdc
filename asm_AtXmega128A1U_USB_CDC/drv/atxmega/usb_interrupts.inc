@@ -1,0 +1,173 @@
+;/*
+; * usb_interrupts.inc
+; *
+; *  Created: 21.02.2016 19:29:58
+; *   Author: Dominik Koch
+; */ 
+
+.ifndef USB_INTERRUPTS_INCLUDE
+.set USB_INTERRUPTS_INCLUDE = 1
+
+
+USB_BUSEVENT_ivect:			;SOF, suspend, resume, bus reset, CRC, underflow, overflow, and stall error interrupts
+PUSH R16
+PUSH R17
+PUSH R18
+PUSH R20
+	;######################################
+	LDS R20, USB_STATUS
+	;######################################
+	SBRS R20, USB_BUSRST_bp
+	RJMP USB_BUSEVENT_USB_BURST_END
+	USB_BUSEVENT_USB_BURST:
+		LDI R16, 0x00
+		LDI R17, EP_DISABLE
+		LDI R18, EPS_8 ;EP0_SIZE
+		CALL USB_EP_SETUP ; R16 = EP_Nummer, R17 = ep_type, R18 = ep_size, X = ep_Buffer		
+			LDI R16, 0x82
+			LDI R17, 0xFF
+			CALL USB_EP_CLEAR_STATUS ; R16 = EP, R17 = MASK
+		CALL USB_INIT
+	USB_BUSEVENT_USB_BURST_END:
+	;######################################
+	SBRS R20, USB_SUSPEND_bp
+	RJMP USB_BUSEVENT_USB_SUSPEND_END
+	USB_BUSEVENT_USB_SUSPEND:
+
+	USB_BUSEVENT_USB_SUSPEND_END:
+	;######################################
+	SBRS R20, USB_RESUME_bp
+	RJMP USB_BUSEVENT_USB_RESUME_END
+	USB_BUSEVENT_USB_RESUME:
+
+	USB_BUSEVENT_USB_RESUME_END:
+	;######################################
+	SBRS R20, USB_URESUME_bp
+	RJMP USB_BUSEVENT_USB_URESUME_END
+	USB_BUSEVENT_USB_URESUME:
+
+	USB_BUSEVENT_USB_URESUME_END:
+	;######################################
+
+	;######################################	
+	LDS R20, USB_INTFLAGSACLR
+	;######################################
+	SBRS R20, USB_SOFIF_bp
+	RJMP USB_BUSEVENT_SOFIF_END
+	USB_BUSEVENT_SOFIF:
+		.IF USB_CDC_ENABLE == 1
+			.IF USB_ENABLE_SOFIE == 1
+			LDS R16, CDC_STATUS
+			SBRS R16, CDC_TX_bp
+			RJMP LOOP_CDC_TX_END
+			LOOP_CDC_TX:
+				CALL USB_CDC_STATUS_CLREAR_TX
+			LOOP_CDC_TX_END:
+			.ENDIF
+		.ENDIF
+
+		LDI R16, USB_SOFIF_bm
+		STS USB_INTFLAGSACLR, R16
+	USB_BUSEVENT_SOFIF_END:
+	;######################################
+	SBRS R20,  USB_SUSPENDIF_bp
+	RJMP USB_BUSEVENT_SUSPENDIF_END
+	USB_BUSEVENT_SUSPENDIF:
+		LDI R16, USB_SUSPENDIF_bm;
+		STS USB_INTFLAGSACLR, R16
+	USB_BUSEVENT_SUSPENDIF_END:	
+	;######################################
+	SBRS R20, USB_RESUMEIF_bp
+	RJMP USB_BUSEVENT_RESUMEIF_END
+	USB_BUSEVENT_RESUMEIF:
+		LDI R16, USB_RESUMEIF_bm;
+		STS USB_INTFLAGSACLR, R16
+	USB_BUSEVENT_RESUMEIF_END:
+	;######################################
+	SBRS R20, USB_RSTIF_bp
+	RJMP USB_BUSEVENT_RSTIF_END
+	USB_BUSEVENT_RSTIF:
+		LDI R16, USB_RSTIF_bm;
+		STS USB_INTFLAGSACLR, R16
+	USB_BUSEVENT_RSTIF_END:
+	;######################################
+	SBRS R20, USB_CRCIF_bp
+	RJMP USB_BUSEVENT_CRCIF_END
+	USB_BUSEVENT_CRCIF:
+		LDI R16, USB_CRCIF_bm;
+		STS USB_INTFLAGSACLR, R16
+	USB_BUSEVENT_CRCIF_END:
+	;######################################
+	SBRS R20,  USB_UNFIF_bp
+	RJMP USB_BUSEVENT_CRC_UNF_OVF_END
+	USB_BUSEVENT_CRC_UNF_OVF:
+		LDI R16, USB_UNFIF_bm;
+		STS USB_INTFLAGSACLR, R16
+	USB_BUSEVENT_CRC_UNF_OVF_END:	
+	;######################################
+	SBRS R20, USB_OVFIF_bp
+	RJMP USB_BUSEVENT_OVFIF_END
+	USB_BUSEVENT_OVFIF:
+		LDI R16, USB_OVFIF_bm;
+		STS USB_INTFLAGSACLR, R16
+	USB_BUSEVENT_OVFIF_END:	
+	;######################################
+	SBRS R20, USB_STALLIF_bp
+	RJMP USB_BUSEVENT_USB_STALLIF_END
+	USB_BUSEVENT_USB_STALLIF:
+		LDI R16, USB_STALLIF_bm
+		STS USB_INTFLAGSACLR, R16
+	USB_BUSEVENT_USB_STALLIF_END:	
+	;######################################
+
+	;LDI R16, (USB_SUSPENDIF_bm | USB_RESUMEIF_bm | USB_RSTIF_bm);
+	;STS USB_INTFLAGSACLR, R16
+USB_BUSEVENT_ivect_END:
+POP R20
+POP R18
+POP R17
+POP R16
+RETI
+
+USB_TRNCOMPL_ivect:			;Transaction complete interrupt
+PUSH R16
+PUSH R17
+	;#############################################################
+	LDI R16, 0x00
+	CALL USB_EP_GET_STATUS ; R16 = EP | RETURN R17
+	SBRS R17, USB_EP_SETUP_bp
+	RJMP USB_TRNCOMPL_ivect_CONTROL_END
+	USB_TRNCOMPL_ivect_CONTROL:
+		CALL USB_EP0_CONTROL
+		LDI R16, 0x00
+		LDI R17, 0xFF
+		CALL USB_EP_CLEAR_STATUS ; R16 = EP, R17 = MASK
+	USB_TRNCOMPL_ivect_CONTROL_END:
+	;#############################################################
+.IF USB_CDC_ENABLE == 1
+	;#############################################################
+	LDI R16, EP_CDC_D_OUT
+	CALL USB_EP_GET_STATUS ; R16 = EP | RETURN R17
+	SBRS R17, USB_EP_TRNCOMPL0_bp
+	RJMP USB_TRNCOMPL_ivect_CDC_OUT_END
+	USB_TRNCOMPL_ivect_CDC_OUT:
+		; Set CDC_STATUS bit CDC_RX
+		LDS R16, CDC_STATUS
+		SBR R16, CDC_RX_bm
+		STS CDC_STATUS, R16
+	USB_TRNCOMPL_ivect_CDC_OUT_END:
+	;#############################################################
+.ENDIF
+
+	LDI R16, 0x00
+	STS USB_FIFORP, R16
+
+	LDI R16, (USB_SETUPIF_bm | USB_TRNIF_bm)
+	STS USB_INTFLAGSBCLR, R16	
+USB_TRNCOMPL_ivect_end:
+POP R17
+POP R16
+RETI
+
+
+.ENDIF
